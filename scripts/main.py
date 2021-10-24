@@ -39,6 +39,14 @@ if __name__ == "__main__":
         track_elem = {'track_id':track_id, 'name':track_name, 'duration':track_duration, 'url':track_url, 'album_id':album_id, 'artist_id':artist_id}
         tracks_arr.append(track_elem)
 
+    tracks_played_arr = []
+    for row in recently_played['items']:
+        track_id = row['track']['id']
+        track_time_played = row['played_at']
+        
+        tracks_played_elem = {'track_id':track_id, 'time_played':track_time_played}
+        tracks_played_arr.append(tracks_played_elem)
+
     #Convert list objects to pandas DataFrame and drop duplicates
     albums_df = pd.DataFrame.from_dict(albums_list)
     albums_df = albums_df.drop_duplicates(subset=['album_id'])
@@ -49,6 +57,10 @@ if __name__ == "__main__":
     tracks_df = pd.DataFrame.from_dict(tracks_arr)
     tracks_df = tracks_df.drop_duplicates(subset=['track_id'])
 
+    tracks_played_df = pd.DataFrame.from_dict(tracks_played_arr)
+    tracks_played_df['time_played'] = pd.to_datetime(tracks_played_df['time_played'])
+
     #print(albums_df)
     #print(artists_df)
     #print(tracks_df)
+    #print(tracks_played_df)
