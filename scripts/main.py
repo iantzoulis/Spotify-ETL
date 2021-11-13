@@ -12,7 +12,16 @@ if __name__ == "__main__":
     for row in recently_played['items']:
         album_id = row['track']['album']['id']
         album_name = row['track']['album']['name']
-        album_release_date = row['track']['album']['release_date']
+
+        # Provide less-specific date formats a default month/day of the first
+        date_precision = row['track']['album']['release_date_precision'].lower()
+        if date_precision == 'day':
+            album_release_date = row['track']['album']['release_date']
+        elif date_precision == 'year':
+            album_release_date = row['track']['album']['release_date'] + '-01-01'
+        elif date_precision == 'month':
+            album_release_date = row['track']['album']['release_date'] + '-01'
+
         album_url = row['track']['album']['external_urls']['spotify']
         artist_id = row['track']['artists'][0]['id']
         
