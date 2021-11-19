@@ -1,3 +1,8 @@
 CLIENT_ID = ''
 CLIENT_SECRET = ''
 REDIRECT_URI = 'http://localhost:8080'
+HOST = '127.0.0.1'
+PORT = '3306'
+USER = 'root'
+PASSWORD = ''
+DATABASE = 'my_spotify'

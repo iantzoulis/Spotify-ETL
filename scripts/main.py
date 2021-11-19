@@ -1,11 +1,19 @@
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
+import mysql.connector
+from mysql.connector import errorcode
 import config
 import pandas as pd
 
-if __name__ == "__main__":
-    sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=config.CLIENT_ID, client_secret=config.CLIENT_SECRET, redirect_uri=config.REDIRECT_URI, scope='user-read-recently-played'))
+def main():
+    sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
+        client_id=config.CLIENT_ID, 
+        client_secret=config.CLIENT_SECRET, 
+        redirect_uri=config.REDIRECT_URI, 
+        scope='user-read-recently-played'))
     recently_played = sp.current_user_recently_played(limit=50)
+
+    print("Extract complete: Finished extracting Spotify listening data. Moving to transform step.")
 
     # Build a list of dictionaries for each table containing their respective entries
     albums_list = []
@@ -79,3 +87,25 @@ if __name__ == "__main__":
     # Use the time played in timestamp format as unique identifier for played tracks
     tracks_played_df.insert(loc=0, column='unique_id', value='')
     tracks_played_df['unique_id'] = tracks_played_df['time_played'].astype('int64') // 10 ** 9
+
+    print("Transform complete: Finished transforming data. Beginning database load.")
+
+    cnx = mysql.connector.connect(
+        host=config.HOST,
+        port=config.PORT,
+        user=config.USER,
+        password=config.PASSWORD,
+        database=config.DATABASE,
+        raise_on_warnings=True
+    )
+    cur = cnx.cursor()
+
+    cur.execute("show tables;")
+
+    table_list = cur.fetchall()
+    for tbl in table_list:
+        print(tbl)
+
+
+if __name__ == '__main__':
+    main()
