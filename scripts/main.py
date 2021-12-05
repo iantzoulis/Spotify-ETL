@@ -1,7 +1,6 @@
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
-import mysql.connector
-from mysql.connector import errorcode
+from sqlalchemy import create_engine
 import config
 import pandas as pd
 
@@ -84,27 +83,64 @@ def main():
     # Only keep the relevant pieces of timestamp (%Y-%m-%d %H:%M:%S)
     tracks_played_df['time_played'] = pd.to_datetime(tracks_played_df['time_played'].astype(str).str[:-13])
 
-    # Use the time played in timestamp format as unique identifier for played tracks
-    tracks_played_df.insert(loc=0, column='unique_id', value='')
-    tracks_played_df['unique_id'] = tracks_played_df['time_played'].astype('int64') // 10 ** 9
+    # Use the track id and timestamp concatenated as a unique identifier for played tracks
+    tracks_played_df.insert(loc=0, column='unique_id', value=(tracks_played_df['time_played'].astype('int64') // 10 ** 9))
+    tracks_played_df['unique_id'] = tracks_played_df['track_id'] + '|' + tracks_played_df['unique_id'].astype(str)
 
     print("Transform complete: Finished transforming data. Beginning database load.")
 
-    cnx = mysql.connector.connect(
-        host=config.HOST,
-        port=config.PORT,
-        user=config.USER,
-        password=config.PASSWORD,
-        database=config.DATABASE,
-        raise_on_warnings=True
-    )
-    cur = cnx.cursor()
+    engine = create_engine(f'mysql+mysqlconnector://{config.USER}:{config.PASSWORD}@{config.HOST}:{config.PORT}/my_spotify')
+    cnxn = engine.raw_connection()
+    cursor = cnxn.cursor()
 
-    cur.execute("show tables;")
+    # Load dataframes into staging tables and insert unique rows into production tables
+    albums_df.to_sql('albums_staging', con=engine, if_exists='replace', index=False)
+    cursor.execute("""
+        INSERT INTO my_spotify.albums
+        SELECT tmp.*
+        FROM albums_staging tmp
+        LEFT JOIN my_spotify.albums prod
+            ON tmp.album_id = prod.album_id
+        WHERE prod.album_id IS NULL;
+    """)
+    cnxn.commit()
 
-    table_list = cur.fetchall()
-    for tbl in table_list:
-        print(tbl)
+    artists_df.to_sql('artists_staging', con=engine, if_exists='replace', index=False)
+    cursor.execute("""
+        INSERT INTO my_spotify.artists
+        SELECT tmp.*
+        FROM artists_staging tmp
+        LEFT JOIN my_spotify.artists prod
+            ON tmp.artist_id = prod.artist_id
+        WHERE prod.artist_id IS NULL;
+    """)
+    cnxn.commit()
+
+    tracks_df.to_sql('tracks_staging', con=engine, if_exists='replace', index=False)
+    cursor.execute("""
+        INSERT INTO my_spotify.tracks
+        SELECT tmp.*
+        FROM tracks_staging tmp
+        LEFT JOIN my_spotify.tracks prod
+            ON tmp.track_id = prod.track_id
+        WHERE prod.track_id IS NULL;
+    """)
+    cnxn.commit()
+
+    tracks_played_df.to_sql('tracks_played_staging', con=engine, if_exists='replace', index=False)
+    cursor.execute("""
+        INSERT INTO my_spotify.tracks_played
+        SELECT tmp.*
+        FROM tracks_played_staging tmp
+        LEFT JOIN my_spotify.tracks_played prod
+            ON tmp.unique_id = prod.unique_id
+        WHERE prod.unique_id IS NULL;
+    """)
+    cnxn.commit()
+
+    cursor.close()
+
+    print("Load complete: Finished loading Spotify data to MySQL database.")
 
 
 if __name__ == '__main__':
