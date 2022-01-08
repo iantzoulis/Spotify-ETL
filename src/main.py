@@ -1,14 +1,17 @@
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from sqlalchemy import create_engine
-import config
+from configparser import ConfigParser
 import pandas as pd
 
 def main():
+    config = ConfigParser()
+    config.read('src/config.ini')
+
     sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
-        client_id=config.CLIENT_ID, 
-        client_secret=config.CLIENT_SECRET, 
-        redirect_uri=config.REDIRECT_URI, 
+        client_id=config['SPOTIFY']['CLIENT_ID'], 
+        client_secret=config['SPOTIFY']['CLIENT_SECRET'], 
+        redirect_uri=config['SPOTIFY']['REDIRECT_URI'], 
         scope='user-read-recently-played'))
     recently_played = sp.current_user_recently_played(limit=50)
 
@@ -89,7 +92,7 @@ def main():
 
     print("Transform complete: Finished transforming data. Beginning database load.")
 
-    engine = create_engine(f'mysql+mysqlconnector://{config.USER}:{config.PASSWORD}@{config.HOST}:{config.PORT}/my_spotify')
+    engine = create_engine(f'mysql+mysqlconnector://{config["DB"]["USER"]}:{config["DB"]["PASSWORD"]}@{config["DB"]["HOST"]}:{config["DB"]["PORT"]}/my_spotify')
     cnxn = engine.raw_connection()
     cursor = cnxn.cursor()
 
